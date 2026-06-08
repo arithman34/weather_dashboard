@@ -1,0 +1,6 @@
+[tool.isort]
+profile = "black"
+known_first_party = ["backend"]
+
+[tool.ruff]
+line-length = 120

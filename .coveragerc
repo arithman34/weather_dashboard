@@ -1,0 +1,5 @@
+[run]
+omit =
+    backend/main.py
+    backend/database.py
+    backend/celery_app.py
