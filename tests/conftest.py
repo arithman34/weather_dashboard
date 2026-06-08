@@ -1,54 +1,52 @@
 import os
 
-os.environ["DATABASE_URL"] = "postgresql://postgres:postgres@localhost:5432/weather_dashboard_test"
-os.environ["SECRET_KEY"] = "test-secret-key"
-
-import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+import pytest_asyncio
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
 
 from backend.database import Base, get_db
 from backend.main import app
 
-TEST_DATABASE_URL = os.environ["DATABASE_URL"]
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-engine = create_engine(TEST_DATABASE_URL)
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+if DATABASE_URL is None:
+    raise ValueError("DATABASE_URL environment variable is not set")
+
+engine = create_async_engine(DATABASE_URL, poolclass=NullPool)
+TestingAsyncSessionLocal = async_sessionmaker(engine, autocommit=False, autoflush=False, expire_on_commit=False)
 
 
-@pytest.fixture(scope="session", autouse=True)
-def setup_database():
-    Base.metadata.create_all(bind=engine)
+@pytest_asyncio.fixture(autouse=True)
+async def setup_database():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
     yield
-    Base.metadata.drop_all(bind=engine)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
 
 
-@pytest.fixture()
-def db():
-    connection = engine.connect()
-    transaction = connection.begin()
-    session = TestingSessionLocal(bind=connection)
-    yield session
-    session.close()
-    transaction.rollback()
-    connection.close()
+@pytest_asyncio.fixture()
+async def db():
+    async with TestingAsyncSessionLocal() as session:
+        yield session
+        await session.rollback()
 
 
-@pytest.fixture()
-def client(db):
-    def override_get_db():
+@pytest_asyncio.fixture()
+async def client(db):
+    async def override_get_db():
         yield db
 
     app.dependency_overrides[get_db] = override_get_db
-    with TestClient(app) as c:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         yield c
     app.dependency_overrides.clear()
 
 
-@pytest.fixture()
-def registered_user(client):
-    client.post(
+@pytest_asyncio.fixture()
+async def registered_user(client):
+    await client.post(
         "/auth/register",
         json={
             "username": "testuser",
@@ -59,9 +57,9 @@ def registered_user(client):
     return {"username": "testuser", "password": "password123"}
 
 
-@pytest.fixture()
-def auth_headers(client, registered_user):
-    response = client.post(
+@pytest_asyncio.fixture()
+async def auth_headers(client, registered_user):
+    response = await client.post(
         "/auth/login",
         data={
             "username": registered_user["username"],

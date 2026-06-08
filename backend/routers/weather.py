@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.auth import get_current_user
 from backend.database import get_db
@@ -11,50 +12,46 @@ from backend.schemas.weather import WeatherResponse
 router = APIRouter(prefix="/weather", tags=["Weather"])
 
 
-def _get_owned_location(location_id: int, current_user: UserDB, db: Session) -> LocationDB:
-    location = (
-        db.query(LocationDB)
-        .filter(
-            LocationDB.id == location_id,
-            LocationDB.user_id == current_user.id,
-        )
-        .first()
+async def _get_owned_location(location_id: int, current_user: UserDB, db: AsyncSession) -> LocationDB:
+    result = await db.execute(
+        select(LocationDB).filter(LocationDB.id == location_id, LocationDB.user_id == current_user.id)
     )
-    if not location:
+    location = result.scalar_one_or_none()
+    if location is None:
         raise HTTPException(status_code=404, detail="Location not found")
     return location
 
 
 @router.get("/{location_id}", response_model=WeatherResponse)
-def get_latest_weather(
-    location_id: int, db: Session = Depends(get_db), current_user: UserDB = Depends(get_current_user)
+async def get_latest_weather(
+    location_id: int, db: AsyncSession = Depends(get_db), current_user: UserDB = Depends(get_current_user)
 ):
-    _get_owned_location(location_id, current_user, db)
-
-    record = (
-        db.query(WeatherRecordDB)
+    await _get_owned_location(location_id, current_user, db)
+    result = await db.execute(
+        select(WeatherRecordDB)
         .filter(WeatherRecordDB.location_id == location_id)
         .order_by(WeatherRecordDB.recorded_at.desc())
-        .first()
+        .limit(1)
     )
-    if not record:
+    record = result.scalar_one_or_none()
+    if record is None:
         raise HTTPException(status_code=404, detail="No weather data available for this location")
     return record
 
 
 @router.get("/{location_id}/history", response_model=list[WeatherResponse])
-def get_weather_history(
+async def get_weather_history(
     location_id: int,
-    limit: int = Query(default=30, ge=1, le=60, description="Number of records to return (1-60)"),
-    db: Session = Depends(get_db),
+    limit: int = Query(default=30, ge=1, le=30, description="Number of days to return (1-30)"),
+    db: AsyncSession = Depends(get_db),
     current_user: UserDB = Depends(get_current_user),
 ):
-    _get_owned_location(location_id, current_user, db)
+    await _get_owned_location(location_id, current_user, db)
 
-    return (
-        db.query(WeatherRecordDB)
+    result = await db.execute(
+        select(WeatherRecordDB)
         .filter(WeatherRecordDB.location_id == location_id)
         .order_by(WeatherRecordDB.recorded_at.desc())
         .limit(limit)
-        .all()
     )
+    return result.scalars().all()

@@ -1,5 +1,5 @@
-def test_register_success(client):
-    response = client.post(
+async def test_register_success(client):
+    response = await client.post(
         "/auth/register",
         json={
             "username": "newuser",
@@ -14,8 +14,8 @@ def test_register_success(client):
     assert "hashed_password" not in data
 
 
-def test_register_duplicate_username(client, registered_user):
-    response = client.post(
+async def test_register_duplicate_username(client, registered_user):
+    response = await client.post(
         "/auth/register",
         json={
             "username": registered_user["username"],
@@ -26,8 +26,8 @@ def test_register_duplicate_username(client, registered_user):
     assert response.status_code == 400
 
 
-def test_register_duplicate_email(client, registered_user):
-    response = client.post(
+async def test_register_duplicate_email(client, registered_user):
+    response = await client.post(
         "/auth/register",
         json={
             "username": "otherusername",
@@ -38,8 +38,8 @@ def test_register_duplicate_email(client, registered_user):
     assert response.status_code == 400
 
 
-def test_register_short_password(client):
-    response = client.post(
+async def test_register_short_password(client):
+    response = await client.post(
         "/auth/register",
         json={
             "username": "shortpwduser",
@@ -50,8 +50,8 @@ def test_register_short_password(client):
     assert response.status_code == 422
 
 
-def test_login_success(client, registered_user):
-    response = client.post(
+async def test_login_success(client, registered_user):
+    response = await client.post(
         "/auth/login",
         data={
             "username": registered_user["username"],
@@ -64,8 +64,8 @@ def test_login_success(client, registered_user):
     assert data["token_type"] == "bearer"
 
 
-def test_login_wrong_password(client, registered_user):
-    response = client.post(
+async def test_login_wrong_password(client, registered_user):
+    response = await client.post(
         "/auth/login",
         data={
             "username": registered_user["username"],
@@ -75,8 +75,8 @@ def test_login_wrong_password(client, registered_user):
     assert response.status_code == 401
 
 
-def test_login_unknown_user(client):
-    response = client.post(
+async def test_login_unknown_user(client):
+    response = await client.post(
         "/auth/login",
         data={
             "username": "nobody",

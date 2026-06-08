@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.auth import get_current_user
 from backend.database import get_db
@@ -11,13 +12,14 @@ router = APIRouter(prefix="/locations", tags=["Locations"])
 
 
 @router.get("", response_model=list[LocationResponse])
-def get_locations(db: Session = Depends(get_db), current_user: UserDB = Depends(get_current_user)):
-    return db.query(LocationDB).filter(LocationDB.user_id == current_user.id).all()
+async def get_locations(db: AsyncSession = Depends(get_db), current_user: UserDB = Depends(get_current_user)):
+    result = await db.execute(select(LocationDB).filter(LocationDB.user_id == current_user.id))
+    return result.scalars().all()
 
 
 @router.post("", response_model=LocationResponse, status_code=status.HTTP_201_CREATED)
-def create_location(
-    location_data: LocationCreate, db: Session = Depends(get_db), current_user: UserDB = Depends(get_current_user)
+async def create_location(
+    location_data: LocationCreate, db: AsyncSession = Depends(get_db), current_user: UserDB = Depends(get_current_user)
 ):
     location = LocationDB(
         user_id=current_user.id,
@@ -28,35 +30,43 @@ def create_location(
         alert_enabled=location_data.alert_enabled,
     )
     db.add(location)
-    db.commit()
-    db.refresh(location)
+    await db.commit()
+    await db.refresh(location)
     return location
 
 
 @router.put("/{location_id}", response_model=LocationResponse)
-def update_location(
+async def update_location(
     location_id: int,
     update_data: LocationUpdate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: UserDB = Depends(get_current_user),
 ):
-    location = db.query(LocationDB).filter(LocationDB.id == location_id, LocationDB.user_id == current_user.id).first()
-    if not location:
+    result = await db.execute(
+        select(LocationDB).filter(LocationDB.id == location_id, LocationDB.user_id == current_user.id)
+    )
+    location = result.scalar_one_or_none()
+    if location is None:
         raise HTTPException(status_code=404, detail="Location not found")
 
     for field, value in update_data.model_dump(exclude_unset=True).items():
         setattr(location, field, value)
 
-    db.commit()
-    db.refresh(location)
+    await db.commit()
+    await db.refresh(location)
     return location
 
 
 @router.delete("/{location_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_location(location_id: int, db: Session = Depends(get_db), current_user: UserDB = Depends(get_current_user)):
-    location = db.query(LocationDB).filter(LocationDB.id == location_id, LocationDB.user_id == current_user.id).first()
-    if not location:
+async def delete_location(
+    location_id: int, db: AsyncSession = Depends(get_db), current_user: UserDB = Depends(get_current_user)
+):
+    result = await db.execute(
+        select(LocationDB).filter(LocationDB.id == location_id, LocationDB.user_id == current_user.id)
+    )
+    location = result.scalar_one_or_none()
+    if location is None:
         raise HTTPException(status_code=404, detail="Location not found")
 
-    db.delete(location)
-    db.commit()
+    await db.delete(location)
+    await db.commit()
