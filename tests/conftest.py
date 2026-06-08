@@ -1,5 +1,8 @@
 import os
 
+os.environ["DATABASE_URL"] = "postgresql+asyncpg://postgres:postgres@localhost:5432/weather_dashboard_test"
+os.environ["SECRET_KEY"] = "test-secret-key"
+
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
