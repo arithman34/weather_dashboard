@@ -3,11 +3,15 @@ import os
 os.environ["DATABASE_URL"] = "postgresql+asyncpg://postgres:postgres@localhost:5432/weather_dashboard_test"
 os.environ["SYNC_DATABASE_URL"] = "postgresql://postgres:postgres@localhost:5432/weather_dashboard_test"
 os.environ["SECRET_KEY"] = "test-secret-key"
+os.environ["RESEND_API_KEY"] = "test-resend-key"
+os.environ["FROM_EMAIL"] = "test@example.com"
 
+import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
+from unittest.mock import patch
 
 from backend.base import Base
 from backend.database import get_db
@@ -20,6 +24,12 @@ if DATABASE_URL is None:
 
 engine = create_async_engine(DATABASE_URL, poolclass=NullPool)
 TestingAsyncSessionLocal = async_sessionmaker(engine, autocommit=False, autoflush=False, expire_on_commit=False)
+
+
+@pytest.fixture(autouse=True)
+def mock_celery_tasks():
+    with patch("backend.tasks.email.send_welcome_email.delay"):
+        yield
 
 
 @pytest_asyncio.fixture(autouse=True)

@@ -8,6 +8,7 @@ from backend.database import get_db
 from backend.models.user import UserDB
 from backend.schemas.token import Token
 from backend.schemas.user import UserCreate, UserResponse
+from backend.tasks.email import send_welcome_email
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -31,6 +32,9 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
     db.add(user)
     await db.commit()
     await db.refresh(user)
+
+    send_welcome_email.delay(user.username, user.email)
+
     return user
 
 

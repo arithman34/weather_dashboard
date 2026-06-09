@@ -6,7 +6,7 @@ celery = Celery(
     "weather_dashboard",
     broker=settings.redis_url,
     backend=settings.redis_url,
-    include=["backend.tasks.weather"],
+    include=["backend.tasks.weather", "backend.tasks.email"],
 )
 
 celery.conf.beat_schedule = {
