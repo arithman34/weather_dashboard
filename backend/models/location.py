@@ -2,7 +2,7 @@ from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, St
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
-from backend.database import Base
+from backend.base import Base
 
 
 class LocationDB(Base):

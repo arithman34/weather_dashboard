@@ -8,6 +8,7 @@ from backend.models.location import LocationDB
 from backend.models.user import UserDB
 from backend.models.weather import WeatherRecordDB
 from backend.schemas.weather import WeatherResponse
+from backend.tasks.weather import fetch_weather_for_location
 
 router = APIRouter(prefix="/weather", tags=["Weather"])
 
@@ -55,3 +56,9 @@ async def get_weather_history(
         .limit(limit)
     )
     return result.scalars().all()
+
+
+@router.get("/{location_id}/fetch")
+async def trigger_fetch(location_id: int):
+    fetch_weather_for_location.delay(location_id)
+    return {"message": "Weather fetch triggered"}

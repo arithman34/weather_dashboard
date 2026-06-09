@@ -2,10 +2,9 @@ import asyncio
 import os
 from logging.config import fileConfig
 
+from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import create_async_engine
-
-from alembic import context
 
 config = context.config
 
@@ -16,8 +15,8 @@ database_url = os.getenv("DATABASE_URL")
 if database_url:
     config.set_main_option("sqlalchemy.url", database_url)
 
-from backend.database import Base
-from backend.models import UserDB, LocationDB, WeatherRecordDB
+from backend.base import Base
+from backend.models import LocationDB, UserDB, WeatherRecordDB
 
 target_metadata = Base.metadata
 
@@ -35,6 +34,12 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 
+def do_run_migrations(connection) -> None:
+    context.configure(connection=connection, target_metadata=target_metadata)
+    with context.begin_transaction():
+        context.run_migrations()
+
+
 async def run_migrations_online() -> None:
     connectable = create_async_engine(
         config.get_main_option("sqlalchemy.url"),
@@ -42,12 +47,7 @@ async def run_migrations_online() -> None:
     )
 
     async with connectable.connect() as connection:
-        await connection.run_sync(
-            lambda conn: context.configure(
-                connection=conn, target_metadata=target_metadata
-            )
-        )
-        await connection.run_sync(lambda conn: context.run_migrations())
+        await connection.run_sync(do_run_migrations)
 
     await connectable.dispose()
 
