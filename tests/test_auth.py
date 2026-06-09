@@ -84,3 +84,30 @@ async def test_login_unknown_user(client):
         },
     )
     assert response.status_code == 401
+
+
+async def test_protected_route_no_token(client):
+    response = await client.get("/locations")
+    assert response.status_code == 401
+
+
+async def test_protected_route_invalid_token(client):
+    response = await client.get("/locations", headers={"Authorization": "Bearer invalidtoken"})
+    assert response.status_code == 401
+
+
+async def test_hash_and_verify_password():
+    from backend.auth import hash_password, verify_password
+
+    hashed = hash_password("mysecretpassword")
+    assert hashed != "mysecretpassword"
+    assert verify_password("mysecretpassword", hashed) is True
+    assert verify_password("wrongpassword", hashed) is False
+
+
+async def test_create_access_token():
+    from backend.auth import create_access_token
+
+    token = create_access_token({"sub": "testuser"})
+    assert isinstance(token, str)
+    assert len(token) > 0

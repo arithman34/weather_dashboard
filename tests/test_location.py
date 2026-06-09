@@ -65,3 +65,19 @@ async def test_cannot_access_other_users_location(client, auth_headers):
 
     response = await client.delete(f"/locations/{location_id}", headers=headers2)
     assert response.status_code == 404
+
+
+async def test_update_nonexistent_location(client, auth_headers):
+    response = await client.put("/locations/99999", json={"alert_enabled": True}, headers=auth_headers)
+    assert response.status_code == 404
+
+
+async def test_delete_nonexistent_location(client, auth_headers):
+    response = await client.delete("/locations/99999", headers=auth_headers)
+    assert response.status_code == 404
+
+
+async def test_get_empty_locations(client, auth_headers):
+    response = await client.get("/locations", headers=auth_headers)
+    assert response.status_code == 200
+    assert response.json() == []

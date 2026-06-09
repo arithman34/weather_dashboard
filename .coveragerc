@@ -1,5 +1,11 @@
 [run]
+concurrency = greenlet,thread
 omit =
+    backend/celery_app.py
     backend/main.py
     backend/database.py
-    backend/celery_app.py
+
+[report]
+exclude_lines =
+    pragma: no cover
+    if __name__ == .__main__.:

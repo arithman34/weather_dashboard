@@ -11,9 +11,10 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from backend.base import Base
+from backend.celery_app import celery as celery_app
 from backend.database import get_db
 from backend.main import app
 
@@ -25,10 +26,17 @@ if DATABASE_URL is None:
 engine = create_async_engine(DATABASE_URL, poolclass=NullPool)
 TestingAsyncSessionLocal = async_sessionmaker(engine, autocommit=False, autoflush=False, expire_on_commit=False)
 
+celery_app.conf.update(task_always_eager=True, task_eager_propagates=False)
+
 
 @pytest.fixture(autouse=True)
-def mock_celery_tasks():
-    with patch("backend.tasks.email.send_welcome_email.delay"):
+def mock_external_services():
+    with patch("backend.services.email.resend.Emails.send"), \
+         patch("backend.tasks.weather.get_coordinates", return_value=(51.5, -0.1)), \
+         patch("backend.tasks.weather.fetch_current_weather", return_value={
+             "temperature": 15.0, "feels_like": 13.0, "humidity": 70,
+             "wind_speed": 10.0, "description": "Partly cloudy",
+         }):
         yield
 
 
